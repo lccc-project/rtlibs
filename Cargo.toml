@@ -1,2 +1,5 @@
 [workspace]
-members=["libatomic"]
+members=["libatomic","portable-compiler-intrinsics"]
+
+[workspace.dependencies]
+portable-compiler-intrinsics = {path="portable-compiler-intrinsics"}

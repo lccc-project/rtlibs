@@ -5,3 +5,10 @@ version = 3
 [[package]]
 name = "libatomic"
 version = "0.1.0"
+dependencies = [
+ "portable-compiler-intrinsics",
+]
+
+[[package]]
+name = "portable-compiler-intrinsics"
+version = "0.1.0"
