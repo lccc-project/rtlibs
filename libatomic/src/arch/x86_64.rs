@@ -179,7 +179,6 @@ unsafe impl ArchAtomic for [u8; 16] {
             let x: __m128;
 
             core::arch::asm!("vmovaps {}, [{}]", out(xmm_reg) x, in(reg) p);
-            let mut val = [0u8; 16];
 
             core::mem::transmute(x)
         }
@@ -192,7 +191,8 @@ unsafe impl ArchAtomic for [u8; 16] {
 
             core::arch::asm!("xchg rbx, {rbx}",
                     "2: lock cmpxchg16b [{ptr}]",
-                    "jz 2b", rbx = in(reg) r, in("rcx") l, out("rax") _, out("rdx") _)
+                    "jz 2b",
+                    "xchg {rbx}, rbx", rbx = inout(reg) r => _, in("rcx") l, out("rax") _, out("rdx") _)
         }
         #[cfg(target_feature = "avx")]
         {
