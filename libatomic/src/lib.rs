@@ -5,4 +5,5 @@
 mod align;
 mod os_prims;
 
+pub mod arch;
 pub mod locking;
