@@ -5,5 +5,18 @@
 mod align;
 mod os_prims;
 
+mod arith;
+
+#[repr(usize)]
+pub enum Ordering {
+    Relaxed = 0,
+    Acquire = 1,
+    Release = 2,
+    AcqRel = 3,
+    SeqCst = 4,
+}
+
 pub mod arch;
 pub mod locking;
+
+pub mod export;

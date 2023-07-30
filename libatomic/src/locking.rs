@@ -1,6 +1,8 @@
-use core::{cell::UnsafeCell, sync::atomic::Ordering};
+use core::cell::UnsafeCell;
 
 use crate::align::{self, NaturalAlignment};
+
+use crate::Ordering;
 
 mod lock_primitive;
 

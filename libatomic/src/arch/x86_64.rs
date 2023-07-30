@@ -1,4 +1,6 @@
-use core::{arch::x86_64::__m128, sync::atomic::Ordering};
+use core::arch::x86_64::__m128;
+
+use crate::Ordering;
 
 use super::ArchAtomic;
 
