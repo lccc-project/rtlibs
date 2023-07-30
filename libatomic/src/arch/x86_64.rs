@@ -219,7 +219,7 @@ unsafe impl ArchAtomic for [u8; 16] {
         let [l, r]: [u64; 2];
         let cmp: u64;
 
-        core::arch::asm!("xchg rbx, {rbx}; xor {cmp:e},{cmp:e}: lock cmpxchg16b [{ptr}]; setnz {cmp:l}; xchg {rbx}, rbx", rbx= in(reg) new_r ,  cmp = out(reg) cmp, ptr = in(reg) p, inout("rax") expected_l => l, inout("rdx") expected_r => r, in("rcx") new_l);
+        core::arch::asm!("xchg rbx, {rbx}; xor {cmp:e},{cmp:e}; lock cmpxchg16b [{ptr}]; setnz {cmp:l}; xchg {rbx}, rbx", rbx= in(reg) new_r ,  cmp = out(reg) cmp, ptr = in(reg) p, inout("rax") expected_l => l, inout("rdx") expected_r => r, in("rcx") new_l);
 
         (core::mem::transmute([l, r]), cmp != 0)
     }

@@ -9,4 +9,4 @@ edition = "2021"
 portable-compiler-intrinsics.workspace = true
 
 [lib]
-crate-type=["staticlib","cdylib","rlib"]
+crate-type=["rlib"]

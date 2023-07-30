@@ -1,5 +1,6 @@
 #![no_std]
 #![no_builtins]
+#![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
 mod freeze;
@@ -20,3 +21,5 @@ where
 mod memcmp;
 
 pub use memcmp::compare_bytes;
+
+mod abort;

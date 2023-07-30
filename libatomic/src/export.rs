@@ -1,3 +1,5 @@
+// Hack in this file for stable concrete specialization is courtesy of Yandros on the Rust Programming Language Community Server
+
 use crate::{
     align::NaturalAlignment,
     arch::{ArchAtomic, AtomicArchImpl},

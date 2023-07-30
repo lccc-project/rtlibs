@@ -1,5 +1,6 @@
 #![no_std]
 #![no_builtins]
+#![allow(incomplete_features)]
 #![feature(generic_const_exprs, cfg_target_has_atomic)]
 
 mod align;
