@@ -11,7 +11,7 @@ unsafe impl ArchAtomic for [u8; 1] {
 
     unsafe fn store(p: *mut Self, val: Self, _: Ordering) {
         let val: u8 = u8::from_le_bytes(val);
-        core::arch::asm!("mfence; mov byte ptr [{}], {}", in(reg) p, in(reg_byte) val);
+        core::arch::asm!("xchg byte ptr [{}], {}", in(reg) p, inout(reg_byte) val => _);
     }
 
     unsafe fn compare_exchange_weak(
@@ -51,7 +51,7 @@ unsafe impl ArchAtomic for [u8; 2] {
 
     unsafe fn store(p: *mut Self, val: Self, _: Ordering) {
         let val = u16::from_le_bytes(val);
-        core::arch::asm!("mfence; mov word ptr [{}], {:x}", in(reg) p, in(reg) val);
+        core::arch::asm!("xchg word ptr [{}], {:x}", in(reg) p, inout(reg) val => _);
     }
 
     unsafe fn compare_exchange_weak(
@@ -91,7 +91,7 @@ unsafe impl ArchAtomic for [u8; 4] {
 
     unsafe fn store(p: *mut Self, val: Self, _: Ordering) {
         let val = u32::from_le_bytes(val);
-        core::arch::asm!("mfence; mov dword ptr [{}], {:e}", in(reg) p, in(reg) val);
+        core::arch::asm!("xchg dword ptr [{}], {:e}", in(reg) p, inout(reg) val => _);
     }
 
     unsafe fn compare_exchange_weak(
@@ -131,7 +131,7 @@ unsafe impl ArchAtomic for [u8; 8] {
 
     unsafe fn store(p: *mut Self, val: Self, _: Ordering) {
         let val = u64::from_le_bytes(val);
-        core::arch::asm!("mfence; mov qword ptr [{}], {}", in(reg) p, in(reg) val);
+        core::arch::asm!("xchg qword ptr [{}], {}", in(reg) p, inout(reg) val => _);
     }
 
     unsafe fn compare_exchange_weak(
