@@ -1,5 +1,5 @@
 [workspace]
-members=["libatomic","portable-compiler-intrinsics"]
+members=["libatomic","portable-compiler-intrinsics", "libsfp"]
 
 [workspace.dependencies]
 portable-compiler-intrinsics = {path="portable-compiler-intrinsics"}

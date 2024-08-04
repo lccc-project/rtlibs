@@ -2,7 +2,23 @@ use core::arch::x86_64::__m128;
 
 use crate::Ordering;
 
-use super::ArchAtomic;
+use super::{ArchAtomic, ArchAtomicFlag};
+
+unsafe impl ArchAtomicFlag for bool {
+    type Underlying = bool;
+
+    unsafe fn test_and_set(p: *mut Self, _: Ordering) -> Self {
+        let mut val: u8 = 1;
+        core::arch::asm!("xchg byte ptr [{}], {}", in(reg) p, inout(reg_byte) val);
+
+        unsafe { core::mem::transmute(val) }
+    }
+
+    unsafe fn clear(p: *mut Self, _: Ordering) {
+        let val: u8 = 0;
+        core::arch::asm!("xchg byte ptr [{}], {}", in(reg) p, inout(reg_byte) val => _);
+    }
+}
 
 unsafe impl ArchAtomic for [u8; 1] {
     unsafe fn load(p: *const Self, _: Ordering) -> Self {
@@ -41,6 +57,12 @@ unsafe impl ArchAtomic for [u8; 1] {
         core::arch::asm!("xor ecx, ecx; lock cmpxchg byte ptr [{}], {}; setnz cl", in(reg) p, in(reg_byte) val_new, inout("al") val_expected, out("cl") is_val);
 
         (val_expected.to_le_bytes(), is_val != 0)
+    }
+
+    unsafe fn swap(p: *mut Self, val: Self, ord: Ordering) -> Self {
+        let mut val = u8::from_le_bytes(val);
+        core::arch::asm!("xchg byte ptr [{}], {}", in(reg) p, inout(reg_byte) val);
+        val.to_le_bytes()
     }
 }
 
@@ -82,6 +104,11 @@ unsafe impl ArchAtomic for [u8; 2] {
 
         (val_expected.to_le_bytes(), is_val != 0)
     }
+    unsafe fn swap(p: *mut Self, val: Self, ord: Ordering) -> Self {
+        let mut val = u16::from_le_bytes(val);
+        core::arch::asm!("xchg word ptr [{}], {:x}", in(reg) p, inout(reg) val);
+        val.to_le_bytes()
+    }
 }
 
 unsafe impl ArchAtomic for [u8; 4] {
@@ -122,8 +149,15 @@ unsafe impl ArchAtomic for [u8; 4] {
 
         (val_expected.to_le_bytes(), is_val != 0)
     }
+
+    unsafe fn swap(p: *mut Self, val: Self, ord: Ordering) -> Self {
+        let mut val = u32::from_le_bytes(val);
+        core::arch::asm!("xchg dword ptr [{}], {:e}", in(reg) p, inout(reg) val);
+        val.to_le_bytes()
+    }
 }
 
+#[cfg(target_arch = "x86_64")]
 unsafe impl ArchAtomic for [u8; 8] {
     unsafe fn load(p: *const Self, _: Ordering) -> Self {
         let val: u64;
@@ -162,9 +196,79 @@ unsafe impl ArchAtomic for [u8; 8] {
 
         (val_expected.to_le_bytes(), is_val != 0)
     }
+
+    unsafe fn swap(p: *mut Self, val: Self, ord: Ordering) -> Self {
+        let mut val = u64::from_le_bytes(val);
+        core::arch::asm!("xchg qword ptr [{}], {}", in(reg) p, inout(reg) val);
+        val.to_le_bytes()
+    }
 }
 
-#[cfg(target_feature = "cmpxchg16b")]
+#[cfg(all(not(target_arch = "x86_64"), target_feature = "cmpxchg8b"))]
+unsafe impl ArchAtomic for [u8; 8] {
+    unsafe fn load(p: *const Self, _: Ordering) -> Self {
+        let mut val @ [ref mut l, ref mut h] = [0, 0];
+        #[cfg(target_feature = "sse2")]
+        {
+            core::arch::asm!("movq xmm0, qword ptr [{}]", "movq qword ptr [{}], xmm0", in(reg) p, in(reg) core::ptr::addr_of_mut!(val), out("xmm0") _);
+        }
+        #[cfg(not(target_feature = "sse2"))]
+        {
+            core::arch::asm!("mov ebx, eax; mov ecx, edx; cmpxchg8b qword ptr [{}]", in(reg) p, lateout("eax") *l, lateout("edx") *r, out("ecx") _, out("ebx") _);
+        }
+
+        core::mem::transmute(val)
+    }
+
+    unsafe fn store(p: *const Self, val: Self, _: Ordering) -> Self {
+        #[cfg(target_feature = "sse2")]
+        {
+            core::arch::asm!("mfence","movq xmm0, qword ptr [{}]", "movq qword ptr [{}], xmm0", in(reg) core::ptr::addr_of_mut!(val), in(reg) p, out("xmm0") _);
+        }
+
+        #[cfg(not(target_feature = "sse2"))]
+        {
+            let [l, r]: [u32; 2] = core::mem::transmute(val);
+            core::arch::asm!("2: cmpxchg8b [{}]; jnz 2b", in(reg) p, inout("ecx") h=>_, inout("ebx") l=>_);
+        }
+    }
+
+    unsafe fn compare_exchange(
+        p: *const Self,
+        expected: Self,
+        val: Self,
+        _: Ordering,
+        _: Ordering,
+    ) -> (Self, bool) {
+        let [val_l, val_h]: [u32; 2] = core::mem::transmute(val);
+        let [mut expected_l, mut expected_h] = core::mem::transmute(expected);
+        let res: u32;
+        core::arch::asm!("cmpxchg8b [{}]; xor ecx, ecx; setz cl", in(reg) p, inout("eax") expected_l, inout("edx") expected_h, inout("ecx") val_h=> res, in("ebx") expected_l);
+        (core::mem::transmute([val_l, val_h]), res != 0)
+    }
+
+    unsafe fn compare_exchange_weak(
+        p: *const Self,
+        expected: Self,
+        val: Self,
+        succ_order: Ordering,
+        fail_order: Ordering,
+    ) -> (Self, bool) {
+        Self::compare_exchange(p, expected, new, succ_order, fail_order)
+    }
+
+    unsafe fn swap(p: *const Self, val: Self, _: Ordering) -> Self {
+        let mut flag = false;
+        let mut expected_val = Self::load(p, Ordering::Relaxed);
+        while flag {
+            (expected_val, flag) =
+                Self::compare_exchange_weak(p, expected_val, val, ord, Ordering::Relaxed);
+        }
+        expected_val
+    }
+}
+
+#[cfg(all(target_arch = "x86_64", target_feature = "cmpxchg16b"))]
 unsafe impl ArchAtomic for [u8; 16] {
     unsafe fn load(p: *const Self, _: Ordering) -> Self {
         #[cfg(not(target_feature = "avx"))]
@@ -232,5 +336,15 @@ unsafe impl ArchAtomic for [u8; 16] {
         fail_order: Ordering,
     ) -> (Self, bool) {
         Self::compare_exchange(p, expected, new, success_order, fail_order)
+    }
+
+    unsafe fn swap(p: *mut Self, val: Self, ord: Ordering) -> Self {
+        let mut flag = false;
+        let mut expected_val = Self::load(p, Ordering::Relaxed);
+        while flag {
+            (expected_val, flag) =
+                Self::compare_exchange_weak(p, expected_val, val, ord, Ordering::Relaxed);
+        }
+        expected_val
     }
 }

@@ -21,6 +21,10 @@ where
         Self(UnsafeCell::new(x), align::new_alignment())
     }
 
+    pub fn into_inner(self) -> T {
+        self.0.into_inner()
+    }
+
     pub fn store(&self, val: T, _: Ordering) {
         let _guard = __ATOMIC_LOCK.lock();
         let buf: [u8; core::mem::size_of::<T>()] = unsafe {

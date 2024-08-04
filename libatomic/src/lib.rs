@@ -9,6 +9,7 @@ mod os_prims;
 mod arith;
 
 #[repr(usize)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Ordering {
     Relaxed = 0,
     Acquire = 1,

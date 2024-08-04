@@ -2,11 +2,40 @@ use crate::align::{self, NaturalAlignment};
 
 use self::spin_lock_impl::SpinLockImpl;
 
-#[cfg(target_has_atomic = "ptr")]
 mod spin_lock_impl {
-    mod atomic_usize;
+    use crate::Ordering;
 
-    pub use atomic_usize::*;
+    use crate::arch::AtomicFlag;
+
+    #[repr(transparent)]
+    pub struct SpinLockImpl(AtomicFlag);
+
+    impl SpinLockImpl {
+        pub const fn new() -> Self {
+            Self(AtomicFlag::new(false))
+        }
+
+        pub fn try_lock(&self) -> bool {
+            !self.0.test_and_set(Ordering::Acquire)
+        }
+
+        pub fn lock(&self) {
+            let mut step_counter = 0usize;
+            while self.0.test_and_set(Ordering::Acquire) {
+                if step_counter >= 16 {
+                    crate::os_prims::yield_thread();
+                } else {
+                    core::hint::spin_loop();
+                }
+
+                step_counter += 1;
+            }
+        }
+
+        pub unsafe fn unlock(&self) {
+            self.0.clear(Ordering::Release);
+        }
+    }
 }
 
 #[repr(C)]
