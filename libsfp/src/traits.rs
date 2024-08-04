@@ -1,0 +1,4 @@
+
+pub unsafe trait Int{
+    
+}
